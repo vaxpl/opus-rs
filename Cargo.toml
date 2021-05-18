@@ -1,7 +1,10 @@
 [package]
 name = "opus"
-version = "0.2.1"
-authors = ["Tad Hardesty <tad@platymuus.com>"]
+version = "0.3.0"
+authors = [
+	"Varphone Wong <varphone@qq.com",
+	"Tad Hardesty <tad@platymuus.com>"
+]
 
 description = "Safe Rust bindings for libopus"
 readme = "README.md"
@@ -10,9 +13,9 @@ keywords = ["opus", "codec", "voice", "sound", "audio"]
 categories = ["api-bindings", "encoding", "compression",
 	"multimedia::audio", "multimedia::encoding"]
 
-repository = "https://github.com/SpaceManiac/opus-rs"
-documentation = "https://docs.rs/opus/0.2.1/opus/"
+repository = "https://github.com/vaxpl/opus-rs"
+documentation = "https://docs.rs/opus/0.3.0/opus/"
 
 [dependencies]
-opus-sys = "0.2.0"
+opus-sys = { path = "opus-sys" }
 libc = "0.2"
