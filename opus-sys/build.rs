@@ -95,6 +95,22 @@ fn build() -> io::Result<Paths> {
         ));
     }
 
+    // make sure the `autoreconf` exists
+    if !check_prog("autoreconf", &["--version"]) {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "The `autoreconf` not found, install or add to PATH and try again!",
+        ));
+    }
+
+    // make sure the `libtool` exists
+    if !check_prog("libtool", &["--version"]) {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "The libtool` not found, install or add to PATH and try again!",
+        ));
+    }
+
     let mut autogen_sh = Command::new("./autogen.sh");
     autogen_sh.current_dir(&source());
 
