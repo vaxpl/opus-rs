@@ -91,11 +91,18 @@ fn check_prog(name: &str, args: &[&str]) -> bool {
 
 #[cfg(windows)]
 fn build() -> io::Result<Paths> {
-    // make sure the `nmake` exists
-    if !check_prog("nmake", &["/?"]) {
+    let is_target_env_gnu = env::var("CARGO_CFG_TARGET_ENV").map_or(false, |v| v == "gnu");
+
+    // make sure the `make/nmake` exists
+    let (make_prog_name, make_prog_args) = if is_target_env_gnu {
+        ("make", ["--version"])
+    } else {
+        ("nmake", ["/?"])
+    };
+    if !check_prog(make_prog_name, &make_prog_args) {
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            "The `nmake` not found, install or add to PATH and try again!",
+            format!("The `{}` not found, install or add to PATH and try again!", make_prog_name),
         ));
     }
 
@@ -107,11 +114,17 @@ fn build() -> io::Result<Paths> {
         ));
     }
 
+    let generator = if is_target_env_gnu {
+        "Unix Makefiles"
+    } else {
+        "NMake Makefiles"
+    };
     let mut configure = Command::new("cmake");
     configure.current_dir(&source());
-    configure.args(&["-G", "NMake Makefiles"]);
+    configure.args(&["-G", generator]);
     configure.arg(format!("-DCMAKE_BUILD_TYPE={}", "Release"));
     configure.arg(format!("-DCMAKE_INSTALL_PREFIX={}", search().to_string_lossy()));
+    configure.arg("-DOPUS_STACK_PROTECTOR=OFF");
 
     // run ./configure
     let output = configure
@@ -130,22 +143,22 @@ fn build() -> io::Result<Paths> {
     }
 
     // run make
-    if !Command::new("nmake")
+    if !Command::new(make_prog_name)
         .current_dir(&source())
         .status()?
         .success()
     {
-        return Err(io::Error::new(io::ErrorKind::Other, "nmake failed"));
+        return Err(io::Error::new(io::ErrorKind::Other, "make failed"));
     }
 
     // run make install
-    if !Command::new("nmake")
+    if !Command::new(make_prog_name)
         .arg("install")
         .current_dir(&source())
         .status()?
         .success()
     {
-        return Err(io::Error::new(io::ErrorKind::Other, "nmake install failed"));
+        return Err(io::Error::new(io::ErrorKind::Other, "make install failed"));
     }
 
     Ok(Paths::default())
@@ -250,7 +263,13 @@ fn build() -> io::Result<Paths> {
 }
 
 fn probe_prebuilt() -> Result<Paths, DynError> {
-    match fs::metadata(&search().join("lib").join("libopus.a")) {
+    let lib_name = if env::var("CARGO_CFG_TARGET_ENV").map_or(false, |v| v == "gnu") {
+        "libopus.a"
+    } else {
+        "opus.lib"
+    };
+
+    match fs::metadata(&search().join("lib").join(lib_name)) {
         Ok(_) => Ok(Paths::default()),
         Err(_) => Err(Box::new(io::Error::new(io::ErrorKind::NotFound, ""))),
     }
@@ -280,8 +299,7 @@ fn main() -> Result<(), DynError> {
         .include_paths
         .iter()
         .map(|x| format!("-I{}", x.display()))
-        .collect::<Vec<String>>()
-        .join(" ");
+        .collect::<Vec<String>>();
 
     let wrapper_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("wrapper.h");
     let wrapper_path = wrapper_path.to_str().unwrap();
@@ -300,7 +318,7 @@ fn main() -> Result<(), DynError> {
         .whitelist_type("^Opus.*")
         .whitelist_var("^OPUS_.*")
         .use_core()
-        .clang_arg(include_paths)
+        .clang_args(include_paths)
         .generate()
         .expect("Unable to generate bindings");
 
