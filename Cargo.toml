@@ -1,6 +1,6 @@
 [package]
 name = "opus"
-version = "0.3.1"
+version = "0.3.2"
 authors = [
 	"Varphone Wong <varphone@qq.com",
 	"Tad Hardesty <tad@platymuus.com>"
