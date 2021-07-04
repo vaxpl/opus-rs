@@ -51,9 +51,13 @@ fn search() -> PathBuf {
 }
 
 fn fetch() -> io::Result<()> {
+    #[cfg(windows)]
+    let configure = "CMakeLists.txt";
+    #[cfg(unix)]
+    let configure = "autogen.sh";
     let configure_path = &output()
         .join(format!("opus-{}", version()))
-        .join("configure");
+        .join(configure);
     if fs::metadata(configure_path).is_ok() {
         return Ok(());
     }
@@ -83,6 +87,68 @@ fn check_prog(name: &str, args: &[&str]) -> bool {
     } else {
         false
     }
+}
+
+#[cfg(windows)]
+fn build() -> io::Result<Paths> {
+    // make sure the `nmake` exists
+    if !check_prog("nmake", &["/?"]) {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "The `nmake` not found, install or add to PATH and try again!",
+        ));
+    }
+
+    // make sure the `cmake` exists
+    if !check_prog("cmake", &["--version"]) {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "The `cmake` not found, install or add to PATH and try again!",
+        ));
+    }
+
+    let mut configure = Command::new("cmake");
+    configure.current_dir(&source());
+    configure.args(&["-G", "NMake Makefiles"]);
+    configure.arg(format!("-DCMAKE_BUILD_TYPE={}", "Release"));
+    configure.arg(format!("-DCMAKE_INSTALL_PREFIX={}", search().to_string_lossy()));
+
+    // run ./configure
+    let output = configure
+        .output()
+        .unwrap_or_else(|_| panic!("{:?} failed", configure));
+    if !output.status.success() {
+        println!("configure: {}", String::from_utf8_lossy(&output.stdout));
+
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "configure failed {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        ));
+    }
+
+    // run make
+    if !Command::new("nmake")
+        .current_dir(&source())
+        .status()?
+        .success()
+    {
+        return Err(io::Error::new(io::ErrorKind::Other, "nmake failed"));
+    }
+
+    // run make install
+    if !Command::new("nmake")
+        .arg("install")
+        .current_dir(&source())
+        .status()?
+        .success()
+    {
+        return Err(io::Error::new(io::ErrorKind::Other, "nmake install failed"));
+    }
+
+    Ok(Paths::default())
 }
 
 #[cfg(unix)]
