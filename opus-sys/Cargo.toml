@@ -1,6 +1,6 @@
 [package]
 name = "opus-sys"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Varphone Wong <varphone@qq.com>"]
 edition = "2018"
 
